@@ -75,7 +75,7 @@ typedef struct {
     uint8_t F10MS: 	1;
     uint8_t F100MS:	1;
     uint8_t F500MS:	1;
-    uint8_t bit4: 	1;
+    uint8_t F1SEG: 	1;
     uint8_t bit5: 	1;
     uint8_t bit6: 	1;
     uint8_t bit7: 	1;
@@ -138,6 +138,7 @@ UART_HandleTypeDef huart1;
 	uint8_t t10ms	= TIME10ms;
 	uint8_t t100ms 	= TIME100ms;
 	uint8_t t500ms 	= TIME500ms;
+	uint8_t	t1seg	= 100;
 	uint8_t lastIR 	= 0;
 
 //	uint8_t rx[256],ir,iw;
@@ -209,17 +210,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 			t100ms--;
 			t500ms--;
+			t1seg--;
 		}
 
 		if(t100ms == 0){
 			flags1.F100MS = 1;
-			t100ms=TIME100ms;
+			t100ms = TIME100ms;
 		}
 
 		if(t500ms == 0){
 			flags1.F500MS = 1;
-			t500ms=TIME500ms;
+			t500ms = TIME500ms;
 		}
+
+		if (t1seg == 0) {
+			flags1.F1SEG = 1;
+			t1seg = 100;
+		}
+
 	}
 }
 
@@ -527,7 +535,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  if (flags1.F250US == 1){
 		  flags1.F250US = 0;
-//		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)bufADC, 8);
+		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)bufADC, 8);
 	  }
 
 	  if(flags1.F100MS==1){
@@ -538,6 +546,10 @@ int main(void)
 	  if (flags1.F500MS == 1) {
 		  flags1.F500MS = 0;
 		  HAL_GPIO_TogglePin(LedBuidIn_GPIO_Port, LedBuidIn_Pin);
+	  }
+
+	  if (flags1.F1SEG == 1) {
+		  flags1.F1SEG = 0;
 		  encodeData(IR_SENSOR);
 	  }
 
