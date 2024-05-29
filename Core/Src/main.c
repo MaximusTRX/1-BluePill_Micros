@@ -19,7 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-
+#include "stm32f1xx_hal_flash.h"
+#include "stm32f1xx_hal_flash_ex.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
@@ -84,15 +85,16 @@ typedef struct {
 _sFlags1 flags1;
 
 typedef struct{
-	uint16_t sensor0;
-	uint16_t sensor1;
-	uint16_t sensor2;
-	uint16_t sensor3;
-	uint16_t sensor4;
-	uint16_t sensor5;
-	uint16_t sensor6;
-	uint16_t sensor7;
-	uint16_t sensor8;
+	uint8_t		count;
+	uint16_t 	sensor0[40];
+	uint16_t 	sensor1[40];
+	uint16_t 	sensor2[40];
+	uint16_t 	sensor3[40];
+	uint16_t 	sensor4[40];
+	uint16_t 	sensor5[40];
+	uint16_t 	sensor6[40];
+	uint16_t 	sensor7[40];
+	uint16_t 	sensor8[40];
 }_sIR;
 
 _sIR ir;	//genero un array de mi struct para tener un historial ciclico de lecturas del censor IR
@@ -146,6 +148,16 @@ UART_HandleTypeDef huart1;
 	uint8_t rxUSBData, newData;
 
 	uint16_t bufADC[8];
+
+	const uint32_t varEEPROM __attribute__((__section__(".configeeprom"), used));
+
+	/*Pasos:
+	 * 1. Hacer un HAL_FLASH_Unlock();
+	 * 2. Configurar la estructura de Erase
+	 * 3. Ejecutar HALL_FLASH_Erase
+	 * 4. Pasar toda la info con HAL_FLASH_Program
+	 * 5. Hacer un HAL_FLASH_Lock();
+	 * */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -173,15 +185,16 @@ void USBReceive(uint8_t *but, uint16_t len);
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 //	HAL_ADC_GetValue(hadc);
-	ir.sensor0 = bufADC[0];
-	ir.sensor1 = bufADC[1];
-	ir.sensor2 = bufADC[2];
-	ir.sensor3 = bufADC[3];
-	ir.sensor4 = bufADC[4];
-	ir.sensor5 = bufADC[5];
-	ir.sensor6 = bufADC[6];
-	ir.sensor7 = bufADC[7];
+	ir.sensor0[ir.count] = bufADC[0];
+	ir.sensor1[ir.count] = bufADC[1];
+	ir.sensor2[ir.count] = bufADC[2];
+	ir.sensor3[ir.count] = bufADC[3];
+	ir.sensor4[ir.count] = bufADC[4];
+	ir.sensor5[ir.count] = bufADC[5];
+	ir.sensor6[ir.count] = bufADC[6];
+	ir.sensor7[ir.count] = bufADC[7];
 
+	ir.count++;
 //	ir.sensor0[lastIR] = bufADC[0];//buffer circular para la lectura de datos de los sensores IR
 //	ir.sensor1[lastIR] = bufADC[1];
 //	ir.sensor2[lastIR] = bufADC[2];
@@ -401,42 +414,42 @@ void encodeData(uint8_t id){
 		auxBuffTx[indiceAux++]=IR_SENSOR;
 		auxBuffTx[NBYTES]=0x12; //decimal= 18
 
-		myWord.ui16[0] = ir.sensor0;
+		//myWord.ui16[0] = ir.sensor0;
 		//myWord.ui32 = ir.sensor0;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor1;
+		//myWord.ui16[0] = ir.sensor1;
 		//myWord.ui32 = ir.sensor1;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor2;
+		//myWord.ui16[0] = ir.sensor2;
 		//myWord.ui32 = ir.sensor2;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor3;
+		//myWord.ui16[0] = ir.sensor3;
 		//myWord.ui32 = ir.sensor3;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor4;
+		//myWord.ui16[0] = ir.sensor4;
 		//myWord.ui32 = ir.sensor4;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor5;
+		//myWord.ui16[0] = ir.sensor5;
 		//myWord.ui32 = ir.sensor5;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor6;
+		//myWord.ui16[0] = ir.sensor6;
 		//myWord.ui32 = ir.sensor6;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		myWord.ui16[0] = ir.sensor7;
+		//myWord.ui16[0] = ir.sensor7;
 		//myWord.ui32 = ir.sensor7;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
@@ -503,6 +516,7 @@ int main(void)
   datosComProtocol.indexWriteTx = 0;
   datosComProtocol.indexReadTx = 0;
 //  ir=0,iw=0;
+  ir.count = 0;
 
   HAL_UART_Receive_IT(&huart1, &datosComProtocol.bufferRx[datosComProtocol.indexWriteRx], 1);
 
@@ -538,6 +552,12 @@ int main(void)
 		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)bufADC, 8);
 	  }
 
+	  if (flags1.F10MS == 1){
+		  flags1.F10MS = 0;
+		  ir.count = 0;
+
+	  }
+
 	  if(flags1.F100MS==1){
 		  flags1.F100MS = 0;
 //		  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)bufADC, 8);
@@ -551,6 +571,7 @@ int main(void)
 	  if (flags1.F1SEG == 1) {
 		  flags1.F1SEG = 0;
 		  encodeData(IR_SENSOR);
+
 	  }
 
 
