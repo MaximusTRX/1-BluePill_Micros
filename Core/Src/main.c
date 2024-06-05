@@ -19,8 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include "stm32f1xx_hal_flash.h"
-#include "stm32f1xx_hal_flash_ex.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
@@ -86,15 +85,30 @@ _sFlags1 flags1;
 
 typedef struct{
 	uint8_t		count;
-	uint16_t 	sensor0[40];
-	uint16_t 	sensor1[40];
-	uint16_t 	sensor2[40];
-	uint16_t 	sensor3[40];
-	uint16_t 	sensor4[40];
-	uint16_t 	sensor5[40];
-	uint16_t 	sensor6[40];
-	uint16_t 	sensor7[40];
-	uint16_t 	sensor8[40];
+	uint16_t 	sensor0[256];
+	uint16_t 	sensor1[256];
+	uint16_t 	sensor2[256];
+	uint16_t 	sensor3[256];
+	uint16_t 	sensor4[256];
+	uint16_t 	sensor5[256];
+	uint16_t 	sensor6[256];
+	uint16_t 	sensor7[256];
+	uint32_t 	sumatoriaS0;
+	uint32_t 	sumatoriaS1;
+	uint32_t 	sumatoriaS2;
+	uint32_t 	sumatoriaS3;
+	uint32_t 	sumatoriaS4;
+	uint32_t 	sumatoriaS5;
+	uint32_t 	sumatoriaS6;
+	uint32_t 	sumatoriaS7;
+	uint16_t	promS0;
+	uint16_t	promS1;
+	uint16_t	promS2;
+	uint16_t	promS3;
+	uint16_t	promS4;
+	uint16_t	promS5;
+	uint16_t	promS6;
+	uint16_t	promS7;
 }_sIR;
 
 _sIR ir;	//genero un array de mi struct para tener un historial ciclico de lecturas del censor IR
@@ -185,6 +199,7 @@ void USBReceive(uint8_t *but, uint16_t len);
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 //	HAL_ADC_GetValue(hadc);
+	//Guarda en un Buffer los estados anteriores del IR
 	ir.sensor0[ir.count] = bufADC[0];
 	ir.sensor1[ir.count] = bufADC[1];
 	ir.sensor2[ir.count] = bufADC[2];
@@ -193,6 +208,28 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	ir.sensor5[ir.count] = bufADC[5];
 	ir.sensor6[ir.count] = bufADC[6];
 	ir.sensor7[ir.count] = bufADC[7];
+
+	//Acumulador de la Sumatoria del Promedio Movil
+	ir.sumatoriaS0 += bufADC[0];
+	ir.sumatoriaS1 += bufADC[1];
+	ir.sumatoriaS2 += bufADC[2];
+	ir.sumatoriaS3 += bufADC[3];
+	ir.sumatoriaS4 += bufADC[4];
+	ir.sumatoriaS5 += bufADC[5];
+	ir.sumatoriaS6 += bufADC[6];
+	ir.sumatoriaS7 += bufADC[7];
+
+	//Resta el valor que queda fuera de la ventana del Promedio
+	myWord.ui8[0]= ir.count - 39;	//Aux del indice Inferior de la ventana
+
+	ir.sumatoriaS0 -= ir.sensor0[myWord.ui8[0]];
+	ir.sumatoriaS1 -= ir.sensor1[myWord.ui8[0]];
+	ir.sumatoriaS2 -= ir.sensor2[myWord.ui8[0]];
+	ir.sumatoriaS3 -= ir.sensor3[myWord.ui8[0]];
+	ir.sumatoriaS4 -= ir.sensor4[myWord.ui8[0]];
+	ir.sumatoriaS5 -= ir.sensor5[myWord.ui8[0]];
+	ir.sumatoriaS6 -= ir.sensor6[myWord.ui8[0]];
+	ir.sumatoriaS7 -= ir.sensor7[myWord.ui8[0]];
 
 	ir.count++;
 //	ir.sensor0[lastIR] = bufADC[0];//buffer circular para la lectura de datos de los sensores IR
@@ -268,7 +305,7 @@ void USBReceive(uint8_t *buf, uint16_t len){
 }
 
 
-//'<' header
+/*'<' header
 //byte1
 //byte2
 //byte3
@@ -287,7 +324,7 @@ void USBReceive(uint8_t *buf, uint16_t len){
 //TOKEN: ':'
 
 //CKS: xor de todos los bytes enviados menos el CKS
-
+*/
 void decodeProtocol(_sDato *datosCom){
 	static uint8_t nBytes = 0;
 	while (datosCom->indexReadRx != datosCom->indexWriteRx){
@@ -414,43 +451,43 @@ void encodeData(uint8_t id){
 		auxBuffTx[indiceAux++]=IR_SENSOR;
 		auxBuffTx[NBYTES]=0x12; //decimal= 18
 
-		//myWord.ui16[0] = ir.sensor0;
-		//myWord.ui32 = ir.sensor0;
+		//myWord.ui32 = ir.sensor1[ir.count];
+		myWord.ui32 = ir.promS0;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
 		//myWord.ui16[0] = ir.sensor1;
-		//myWord.ui32 = ir.sensor1;
+		myWord.ui32 = ir.promS1;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor2;
-		//myWord.ui32 = ir.sensor2;
+		//myWord.ui32 = ir.sensor2[ir.count];
+		myWord.ui32 = ir.promS2;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor3;
-		//myWord.ui32 = ir.sensor3;
+		//myWord.ui32 = ir.sensor3[ir.count];
+		myWord.ui32 = ir.promS3;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor4;
-		//myWord.ui32 = ir.sensor4;
+		//myWord.ui32 = ir.sensor4[ir.count];
+		myWord.ui32 = ir.promS4;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor5;
-		//myWord.ui32 = ir.sensor5;
+		//myWord.ui32 = ir.sensor5[ir.count];
+		myWord.ui32 = ir.promS5;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor6;
-		//myWord.ui32 = ir.sensor6;
+		//myWord.ui32 = ir.sensor6[ir.count];
+		myWord.ui32 = ir.promS6;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
-		//myWord.ui16[0] = ir.sensor7;
-		//myWord.ui32 = ir.sensor7;
+		//myWord.ui32 = ir.sensor7[ir.count];
+		myWord.ui32 = ir.promS7;
 		auxBuffTx[indiceAux++] = myWord.ui8[0];
 		auxBuffTx[indiceAux++] = myWord.ui8[1];
 
@@ -495,6 +532,15 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+//HAL_TIM_Base_Start(&htim4);
+//HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+//HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+//HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+//HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+//_HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+//_HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+//_HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
+//_HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
 
   /* USER CODE END SysInit */
 
@@ -542,6 +588,8 @@ int main(void)
 
   uint8_t lengthTx;
 
+  memset(&ir.sensor1,'\0',sizeof(ir.sensor0));
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -554,7 +602,16 @@ int main(void)
 
 	  if (flags1.F10MS == 1){
 		  flags1.F10MS = 0;
-		  ir.count = 0;
+
+		  //Cálculo del Promedio de la Ventana Movil
+		  ir.promS0 = (uint16_t)(ir.sumatoriaS0 / 40);
+		  ir.promS1 = (uint16_t)(ir.sumatoriaS1 / 40);
+		  ir.promS2 = (uint16_t)(ir.sumatoriaS2 / 40);
+		  ir.promS3 = (uint16_t)(ir.sumatoriaS3 / 40);
+		  ir.promS4 = (uint16_t)(ir.sumatoriaS4 / 40);
+		  ir.promS5 = (uint16_t)(ir.sumatoriaS5 / 40);
+		  ir.promS6 = (uint16_t)(ir.sumatoriaS6 / 40);
+		  ir.promS7 = (uint16_t)(ir.sumatoriaS7 / 40);
 
 	  }
 
@@ -597,9 +654,8 @@ int main(void)
 //	  }
 
   }
-}
   /* USER CODE END 3 */
-
+}
 
 /**
   * @brief System Clock Configuration
@@ -684,7 +740,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -857,9 +913,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 4;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 65535;
+  htim4.Init.Period = 12800;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
